@@ -14,22 +14,15 @@ COPYING file for more details.
 *)
 
 
-Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
-Require Import Epsilon FunctionalExtensionality Lra.
-
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.finfun mathcomp.ssreflect.prime mathcomp.ssreflect.binomial
-               mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
-
+Require Import Rdefinitions Raxioms RIneq Rbasic_fun Epsilon FunctionalExtensionality Lra.
+From mathcomp
+Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
 Require Import Rstruct Compl Norms.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
+
 
 
 Set Implicit Arguments.
@@ -73,7 +66,7 @@ Definition stable (meth : Sc) : Prop :=
 
 
 Definition meth_iter (meth : Sc) n (y0 : 'cV_d.+1) (W : R -> R)  
-                     := iter n (meth W) (\matrix_(i,j) (W (y0 i j))).
+                     := Nat.iter n (meth W) (\matrix_(i,j) (W (y0 i j))).
 (*
 (* n-th iteration of the scheme *)
 Fixpoint meth_iter (meth : Sc) (n : nat) (y0 : 'cV_d) (W : R -> R) 

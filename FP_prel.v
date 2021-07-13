@@ -16,20 +16,14 @@ COPYING file for more details.
 
 Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
 Require Import Epsilon FunctionalExtensionality Lra Lia.
-
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.seq mathcomp.ssreflect.finfun mathcomp.ssreflect.choice 
-               mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               (*mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg*)
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
-
+From mathcomp 
+Require Import all_ssreflect ssralg finalg matrix. 
 Require Import Rstruct Compl Norms.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
+
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -101,7 +95,7 @@ auto with real.
 apply bpow_gt_0.
 apply Rmult_le_compat_l; try easy.
 now left.
-omega.
+lia.
 (* small mantissa *)
 apply Rle_trans with (Rabs x - bpow (e-1)).
 (* . *)
@@ -128,21 +122,21 @@ now left.
 destruct T as (c,Hc); rewrite Hc.
 apply round_N_le_midp...
 apply generic_format_bpow...
-unfold FLT_exp; rewrite Z.max_l; try omega.
-unfold Prec_gt_0 in prec_gt_0_; omega.
+unfold FLT_exp; rewrite Z.max_l; try lia.
+unfold Prec_gt_0 in prec_gt_0_; lia.
 apply Rlt_le_trans with (1:=H).
 rewrite succ_eq_pos.
 2: apply bpow_ge_0.
 rewrite ulp_bpow.
-unfold FLT_exp; rewrite Z.max_l; try omega.
+unfold FLT_exp; rewrite Z.max_l; try lia.
 replace (e-1+1-prec)%Z with ((e-1)+(1-prec))%Z by ring.
 rewrite bpow_plus.
 right; unfold u; field.
 apply abs_round_ge_generic...
 apply generic_format_bpow...
 unfold FLT_exp.
-rewrite Z.max_l; try omega.
-unfold Prec_gt_0 in prec_gt_0_; omega.
+rewrite Z.max_l; try lia.
+unfold Prec_gt_0 in prec_gt_0_; lia.
 apply He1...
 case (Rle_or_lt 0 x); intros Zx.
 (* . *)
@@ -788,7 +782,6 @@ apply Rle_trans with
             (Rabs (A i k) * Rabs (v k $0))) 
  + ((INR d.+1) ^ 2 * u + INR d.+1) * /2 * eta)).
 elim/big_ind2: _ => //; try lra.
-apply Rle_refl.
 intros x1 x2 y1 y2 Hx Hy.
 apply Rle_trans with (Rmax x2 y1).
 now apply Rle_max_compat_l.
@@ -925,7 +918,6 @@ ring.
 unfold vec_norm, matrix_norm.
 apply Req_le.
 elim/big_ind2: _ => //; try lra.
-now rewrite Rmult_0_l.
 intros x1 x2 y1 y2 Hx Hy.
 rewrite Rmult_comm.
 rewrite Rmult_comm in Hx.
@@ -934,7 +926,6 @@ rewrite Hx Hy.
 rewrite RmaxRmult.
 ring.
 elim/big_ind: _ => //; try lra.
-apply Rle_refl.
 intros x y Hx0 Hy0.
 apply Rle_trans with x; try easy.
 apply Rmax_l.
@@ -962,8 +953,6 @@ apply big_Rmax_le.
 intros i.
 elim/big_ind2:_=>//; try lra.
 auto with real.
-intros x1 x2 y1 y2 H1 H2.
-apply Rplus_le_compat; try lra.
 intros j _.
 unfold mulmx_rnd.
 eapply Rle_trans.

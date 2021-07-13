@@ -5,12 +5,12 @@ Author: Florian Faissole
 # Build 
 
 The following dependencies are needed: 
-- Coq 8.9.1.
-- mathcomp 1.9.0.
+- Coq 8.13.2.
+- mathcomp 1.12.0.
    (opam packages coq-mathcomp-ssreflect, coq-mathcomp-fingroup, coq-mathcomp-algebra).
-- Flocq 3.2.0.
-- Coquelicot 3.0.3.
-- coq-interval 3.4.1. 
+- Flocq 3.4.2.
+- Coquelicot 3.2.0.
+- coq-interval 4.3.0. 
  
 Ideally, you just have to install the dependencies and run:
 

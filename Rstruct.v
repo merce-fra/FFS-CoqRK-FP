@@ -20,15 +20,12 @@ the economic rights, and the successive licensors have only limited
 liability. See the COPYING file for more details.
 *)
 
-Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
-Require Import Epsilon FunctionalExtensionality ProofIrrelevance Lra.
 
+Require Import Rdefinitions Raxioms RIneq Rbasic_fun Rpow_def Epsilon FunctionalExtensionality ProofIrrelevance Lra.
 
-Require Import Rdefinitions Raxioms RIneq Rbasic_fun Rpow_def.
-Require Import Epsilon FunctionalExtensionality.
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat.
-Require Import mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg.
-Require Import mathcomp.algebra.ssrnum.
+From mathcomp
+Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
+
 
 
 Set Implicit Arguments.

@@ -15,27 +15,18 @@ COPYING file for more details.
 *)
 
 
-Require Import Reals. 
-Require Import List.
-Require Import FunctionalExtensionality.
-Require Import Lra Lia.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
-Require Import Rstruct Compl Norms RungeKutta FP_prel Error_loc_to_glob.
-               
+Require Import Reals List FunctionalExtensionality Lra Lia.
 
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
+From mathcomp
+Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
 
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.finfun mathcomp.ssreflect.prime mathcomp.ssreflect.binomial
-               mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
+Require Import Rstruct RungeKutta FP_prel Error_loc_to_glob Compl Norms.
 
-Require Import Interval.Interval_tactic.
+Require Import Interval.Tactic.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -183,7 +174,9 @@ rewrite <- big_Rplus_scal.
 rewrite Rmult_assoc.
 rewrite <- big_Rplus_half_const.
 elim/big_ind2:_=>//; try lra. 
-intros x1 x2 y1 y2 H1 H2; auto with real.
+apply Rle_refl.
+intros x1 x2 y1 y2 H1 H2; try lra.
+auto with real.
 intros j _.
 rewrite !mxE.
 apply relative_error_N_FLT_strong...
@@ -388,6 +381,7 @@ rewrite <- big_Rplus_scal.
 rewrite Rmult_assoc.
 rewrite <- big_Rplus_half_const.
 elim/big_ind2:_=>//; try lra. 
+apply Rle_refl.
 intros x1 x2 y1 y2 H1 H2; auto with real.
 intros j _.
 rewrite !mxE.
@@ -863,6 +857,7 @@ rewrite <- big_Rplus_scal.
 rewrite Rmult_assoc.
 rewrite <- big_Rplus_half_const.
 elim/big_ind2:_=>//; try lra. 
+apply Rle_refl.
 intros x1 x2 y1 y2 H1 H2; auto with real.
 intros j _.
 rewrite !mxE.
@@ -1971,6 +1966,7 @@ rewrite mul1mx.
 apply/matrixP => i j.
 rewrite !mxE.
 f_equal.
+simpl.
 f_equal; apply functional_extensionality.
 unfold rnd_mat; simpl.
 intros x; f_equal.

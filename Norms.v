@@ -14,22 +14,17 @@ COPYING file for more details.
 *)
 
 Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
-Require Import Epsilon FunctionalExtensionality Lra 
-               ProofIrrelevance Lia Omega.
+Require Import Epsilon FunctionalExtensionality Lra ProofIrrelevance Lia Omega.
 
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.finfun mathcomp.ssreflect.prime mathcomp.ssreflect.binomial
-               mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
+From mathcomp
+Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
 
 Require Import Rstruct Rstruct_Rpos_compl Compl.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
+
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
 Require Import List.
 
 Set Implicit Arguments.
@@ -152,7 +147,7 @@ elim/big_rec:_=> //.
 apply Rle_refl.
 intros i x _ Hx.
 unfold Rmax.
-destruct (Rle_dec (\big[Rplus/0]_(j < n) Rabs (A i j)) x).
+destruct (Rle_dec (\big[Rplus/0]_(j < n) Rabs (A i j))%R x).
 easy.
 elim/big_rec:_=> //.
 apply Rle_refl.
@@ -432,7 +427,7 @@ rewrite <- e0 in Hz.
 rewrite e in Hz.
 assert (Hz' : (n < n)%coq_nat).
 now apply/ltP.
-exfalso; omega.
+exfalso; lia.
 reflexivity.
 elim/big_rec:_=> //.
 auto with real.
@@ -446,16 +441,16 @@ rewrite H.
 auto with real.
 transitivity (1 + 0)%Re.
 f_equal.
-assert (Hi : (i < n)%N).
+assert (Hi : (i < n)%nat).
 destruct i as (i,Hii).
 assert (Hii' : (i < n.+1)%coq_nat).
 now apply/ltP.
 simpl; simpl in n0.
 apply/ltP.
-omega.
+lia.
 assert (IH : (0 < n)%coq_nat).
 apply le_lt_trans with i.
-omega.
+lia.
 now apply/ltP.
 specialize (IHn (Ordinal Hi) IH).
 simpl in IHn.
@@ -469,7 +464,7 @@ Lemma matrix_norm_id : forall {n}, (0 < n)%coq_nat
 Proof. 
 intros n Hn. 
 unfold matrix_norm.
-transitivity (\big[Rmax/0]_(i < n) 1).
+transitivity (\big[Rmax/0]_(i < n) 1)%R.
 f_equal; apply functional_extensionality.
 intros x; f_equal.
 now apply mat_id_sum_1.

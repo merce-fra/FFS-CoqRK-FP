@@ -16,21 +16,13 @@ COPYING file for more details.
 
 Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
 Require Import Epsilon FunctionalExtensionality Lra.
-
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.finfun mathcomp.ssreflect.prime mathcomp.ssreflect.binomial
-               mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
-
+From mathcomp 
+Require Import all_ssreflect fingroup ssrnum ssralg finalg matrix. 
 Require Import Rstruct Compl Norms FP_prel RungeKutta.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
-
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -73,11 +65,11 @@ Lemma error_loc_glob_aux (N : nat) (W : R -> R) :
 Proof.
 unfold error_glob.
 replace (meth_iter meth (S N) y0 W - 
-         meth_iter meth (S N) y0 (fun x : R => x))%R with
+         meth_iter meth (S N) y0 (fun x : R => x))%Ri with
         ((meth_iter meth (S N) y0 W - 
           (meth (fun x => x) (meth_iter meth N y0 W))) +
          ((meth (fun x => x) (meth_iter meth N y0 W) -
-          meth_iter meth (S N) y0 (fun x : R => x))))%R. 
+          meth_iter meth (S N) y0 (fun x : R => x))))%Ri. 
 apply Rle_trans with (vec_norm (meth_iter meth (S N) y0 W -
           meth (fun x : R => x) (meth_iter meth N y0 W)) +
              vec_norm (meth (fun x : R => x) (meth_iter meth N y0 W) -
@@ -103,12 +95,12 @@ reflexivity.
 transitivity ((meth_iter meth N.+1 y0 W -
          meth_iter meth N.+1 y0 ssrfun.id) +
         (meth ssrfun.id (meth_iter meth N y0 W)
-        - meth ssrfun.id (meth_iter meth N y0 W)))%R.
+        - meth ssrfun.id (meth_iter meth N y0 W)))%Ri.
 repeat rewrite GRing.addrA.
 rewrite GRing.addrC.
 rewrite <- GRing.addrA.
 rewrite (GRing.addrC (- meth ssrfun.id 
-             (meth_iter meth N y0 W))%R _).
+             (meth_iter meth N y0 W))%Ri _).
 rewrite GRing.Theory.addrN.
 rewrite GRing.Theory.addr0.
 rewrite <- GRing.addrA.
@@ -116,7 +108,7 @@ rewrite GRing.Theory.addrN.
 rewrite GRing.Theory.addr0.
 now rewrite GRing.addrC.
 transitivity ((meth_iter meth N.+1 y0 W - 
-     meth_iter meth N.+1 y0 ssrfun.id) + 0)%R.
+     meth_iter meth N.+1 y0 ssrfun.id) + 0)%Ri.
 f_equal.
 now rewrite GRing.Theory.addrN.
 now rewrite GRing.Theory.addr0.
@@ -180,7 +172,7 @@ induction N.
   apply Req_le. 
   replace ((meth_iter meth N y0 r_flt) -
      (meth_iter meth N y0 (fun x : R => x)) +
-     (meth_iter meth N y0 (fun x : R => x)))%R with 
+     (meth_iter meth N y0 (fun x : R => x)))%Ri with 
        (meth_iter meth N y0 r_flt).
   ring.
   rewrite GRing.Theory.addrNK.

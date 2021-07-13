@@ -14,22 +14,14 @@ COPYING file for more details.
 *)
 
 Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
-Require Import Epsilon FunctionalExtensionality Lra 
-               ProofIrrelevance Lia Omega.
-
-Require Import mathcomp.ssreflect.ssreflect mathcomp.ssreflect.ssrfun mathcomp.ssreflect.ssrbool 
-               mathcomp.ssreflect.eqtype mathcomp.ssreflect.ssrnat mathcomp.ssreflect.fintype
-               mathcomp.ssreflect.finfun mathcomp.ssreflect.prime mathcomp.ssreflect.binomial
-               mathcomp.ssreflect.choice mathcomp.ssreflect.bigop mathcomp.algebra.ssralg
-               mathcomp.ssreflect.finset mathcomp.fingroup.fingroup mathcomp.ssreflect.seq 
-               mathcomp.ssreflect.div mathcomp.algebra.ssrnum mathcomp.algebra.ssralg
-               mathcomp.algebra.finalg mathcomp.algebra.matrix.
-
+Require Import Epsilon FunctionalExtensionality Lra ProofIrrelevance Lia Omega.
+From mathcomp
+Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
+From Flocq.Core 
+Require Import Core. 
+From Flocq.Prop 
+Require Import Mult_error Plus_error Relative.
 Require Import Rstruct Rstruct_Rpos_compl.
-Require Import Flocq.Core.Core.
-Require Import Flocq.Prop.Mult_error.
-Require Import Flocq.Prop.Plus_error.
-Require Import Flocq.Prop.Relative.
 Require Import List.
 
 Set Implicit Arguments.
@@ -150,8 +142,8 @@ rewrite E'.
 repeat rewrite Rmax_left; try auto with real.
 apply Rle_trans with (F ord0); try auto with real.
 unfold Rmax.
-destruct (Rle_dec (F ord0 + C)%Ri 0%Ri);
-destruct (Rle_dec (F ord0)%Ri 0%Ri).
+destruct (Rle_dec (F ord0 + C)%Ri 0);
+destruct (Rle_dec (F ord0) 0).
 exfalso.
 auto with real.
 exfalso.
@@ -194,7 +186,7 @@ rewrite big_ord_recr.
 simpl; unfold Rmax_pos_aux.
 destruct i0 as (i,Hi).
 destruct (lt_dec i d).
-assert (Hy : (i < d)%N).
+assert (Hy : (i < d)%nat).
 now apply/ltP.
 pose (F2 := fun i:'I_d => 
        F (widen_ord (leqnSn d) i)).
@@ -215,7 +207,7 @@ apply proof_irrelevance.
 assert (Hid : i = d).
 assert (Hi' : (i < d.+1)%coq_nat).
 now apply/ltP.
-omega.
+lia.
 apply Rmax_Rle.
 right.
 apply Req_le; f_equal.
@@ -267,7 +259,7 @@ replace (d.+1 - 1 + 1)%coq_nat with (d.+1).
 reflexivity.
 rewrite subn1.
 simpl.
-omega.
+lia.
 Qed. 
 
 (** From list to vectors, from fold to bigop *)
@@ -397,15 +389,16 @@ intros n m F i j.
 now rewrite !mxE.
 Qed.
 
+ 
 Lemma mat_apply_add_distr : forall {n m} (A B : 'M[R]_(m,n)) i j, 
-                        (A + B)%R i j = A i j + B i j.
+                        (A + B)%Ri i j = A i j + B i j.
 Proof. 
 intros n m A B i j.
 now rewrite !mxE.
 Qed.
 
 Lemma mat_apply_opp_distr : forall {n m} (A: 'M[R]_(m,n)) i j, 
-                        (- A)%R i j = - (A i j).
+                        (- A)%Ri i j = - (A i j).
 Proof. 
 intros n m A i j.
 now rewrite !mxE.
