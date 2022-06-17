@@ -10,7 +10,6 @@ The following dependencies are needed:
    (opam packages coq-mathcomp-ssreflect, coq-mathcomp-fingroup, coq-mathcomp-algebra).
 - Flocq 4.0.0.
 - Coquelicot 3.2.0.
-- coq-interval 4.5.1. 
  
 Ideally, you just have to install the dependencies and run:
 
