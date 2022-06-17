@@ -25,8 +25,6 @@ Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
 
 Require Import Rstruct RungeKutta FP_prel Error_loc_to_glob Compl Norms. 
 
-Require Import Interval.Tactic.
-
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -275,14 +273,14 @@ Proof with auto with typeclass_instances.
   apply Rle_refl.
   (* C2 = 2.01h  ||| A ||| *)
   instantiate (1 := 2.01*u*h*|||A|||).
-  repeat apply Stdlib.Rmult_le_pos_pos; autosolve.
+  repeat apply Rmult_le_pos; autosolve.
   (* C3 = 0 *)
   apply Rle_refl.
   (* D1 = 0 *)
   apply Rle_refl.
   (* D2 = (6/10)*(1 + h)* INR d.+1 *)
   instantiate (1 := (6/10)* (1+h)*INR d.+1).
-  repeat apply Stdlib.Rmult_le_pos_pos; autosolve.
+  repeat apply Rmult_le_pos; autosolve.
   (* D3 = 0 *)
   apply Rle_refl.
   (* ||| X1 - A1 y ||| *)
@@ -378,7 +376,7 @@ Proof with auto with typeclass_instances.
   apply Rle_refl.
   (* C2 = 2.01h  ||| A ||| *)
   instantiate (1 := 2.01*u*h*|||A|||).
-  repeat apply Stdlib.Rmult_le_pos_pos; autosolve.
+  repeat apply Rmult_le_pos; autosolve.
   (* C3 = u + (((1.7 + 0.6*(d + 1)*h)*u) + 0.7*eta)*|||A||| + 2.2*d*eta*)
   instantiate (1 :=
                  u + (((1.7 + 0.6*(INR d.+1 + 1)*h)*u)
