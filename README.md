@@ -13,7 +13,7 @@ The following dependencies are needed:
  
 Ideally, you just have to install the dependencies and run:
 
-$ make
+$ make all
 
 # Organization
 
