@@ -37,7 +37,7 @@ Delimit Scope R_scope with Re.
 Import GRing.Theory.
 
 
-Notation "$0" := (Ordinal (ltn0Sn O)).
+(*Notation "$0" := (Ordinal (ltn0Sn O)).*)
 
 (** Complements on big operators *)
 
@@ -53,10 +53,10 @@ now apply Rle_max_compat_r.
 Qed.  
 
 
-Lemma big_Rplus_exchange : forall {n} (F : 'I_n -> 'I_n -> R), 
-        \sum_(i < n) (\sum_(j < n) (F i j)) = \sum_(j < n) (\sum_(i < n) (F i j)).
+Lemma big_Rplus_exchange : forall {n m} (F : 'I_n -> 'I_m -> R), 
+        \sum_(i < n) (\sum_(j < m) (F i j)) = \sum_(j < m) (\sum_(i < n) (F i j)).
 Proof. 
-intros n F.
+intros n m F.
 apply exchange_big_dep; trivial.
 Qed. 
 
@@ -70,6 +70,20 @@ intros x1 x2 y1 y2 H1 H2.
 rewrite H1 H2; auto with real.
 Qed.
 
+Lemma big_Rplus_scal_r : forall {T} (n : T) d F a, (0 <= a)%Re ->
+       (a * \sum_(i < d) F n i) = \sum_(i < d) (a * (F n i)).
+Proof.
+intros T n d F a Ha.
+now rewrite big_Rplus_scal.
+Qed.
+
+Lemma big_Rplus_le : forall d F G,
+    (forall i, F i <= G i)%Re -> (\sum_(i < d) (F i) <= \sum_(i < d) (G i))%Re.
+Proof.
+  intros d F G H; elim/big_ind2:_=> //; auto with real. 
+Qed. 
+
+  
 Lemma big_Rmax_scal : forall d F a, (0 <= a)%Re ->
       \big[Rmax/0%R]_(i < d) (a * (F i)) = a * \big[Rmax/0%R]_(i < d) F i.
 Proof.
@@ -114,8 +128,7 @@ Qed.
 
 Lemma Rmax_Rplus_compat : forall (a b c : R), (Rmax a b) + c = Rmax (a + c) (b + c).
 Proof.
-intros a b c.
-unfold Rmax.
+intros a b c; unfold Rmax.
 destruct (Rle_dec a b); 
 destruct (Rle_dec (a + c) (b + c)).
 auto with real.
@@ -130,41 +143,26 @@ Lemma big_Rmax_half_const : forall d F C,
          (forall x, (0 <= F x)%Re) -> (0 <= C)%Re  -> 
          \big[Rmax/0%R]_(i < d.+1) ((F i) + C) = \big[Rmax/0%R]_(i < d.+1) (F i) + C.
 Proof.
-intros d F C H H0.
-induction d.
-rewrite 2!big_ord_recl 2!big_ord0.
-destruct (Req_dec (F ord0) 0) as [E | E].
-rewrite E.
-repeat rewrite Rmax_left; try auto with real.
-apply Rle_trans with C; try auto with real.
-destruct (Req_dec C 0) as [E' | E'].
-rewrite E'.
-repeat rewrite Rmax_left; try auto with real.
-apply Rle_trans with (F ord0); try auto with real.
-unfold Rmax.
-destruct (Rle_dec (F ord0 + C)%Ri 0);
-destruct (Rle_dec (F ord0) 0).
-exfalso.
-auto with real.
-exfalso.
-apply Rle_not_lt in r.
-apply r.
-apply Rle_lt_trans with C; try auto with real.
-apply Rle_lt_trans with (0 + C); auto with real.
-exfalso; auto with real.
-reflexivity.
-rewrite big_ord_recl.
-rewrite IHd.
-etransitivity.
-2 : {rewrite big_ord_recl.
-reflexivity. }
-rewrite Rmax_Rplus_compat.
-reflexivity.
-now intros.
+  intros d F C H H0.
+  induction d.
+  + rewrite 2!big_ord_recl 2!big_ord0.
+    destruct (Req_dec (F ord0) 0) as [E | E].
+    rewrite E.
+    repeat rewrite Rmax_left; try auto with real.
+    apply Rle_trans with C; try auto with real.
+    symmetry.
+    repeat rewrite Rmax_left; try auto with real.
+    apply Rle_trans with (0+0); try auto with real.
+  + rewrite big_ord_recl.
+    symmetry.
+    rewrite IHd.
+    simpl.
+    rewrite big_ord_recl.
+    rewrite big_ord_recl.
+    now rewrite Rmax_Rplus_compat.
+    auto with real.
 Qed. 
-
-
-
+  
 Lemma big_Rmax_pos_eq_big_Rmax {d} (F : 'I_d -> R) (H : forall i, (0 <= F i)%Re) :
                \big[Rmax/0]_(i < d) F i = toR (\big[Rmax_pos/Rpos_0]_(i < d) (mk_Rpos (H i))). 
 Proof. 
@@ -247,20 +245,6 @@ apply Nat.le_pred_l.
 unfold subn; simpl; auto with arith.
 Qed. 
 
-Lemma INR_d_succ : forall d, 
-      (1 <= d)%coq_nat -> INR (d - 1) + 1 = INR d.
-Proof.
-intros d Hd.
-replace 1 with (INR 1) by reflexivity.
-rewrite <- plus_INR.
-destruct d.
-exfalso; easy.
-replace (d.+1 - 1 + 1)%coq_nat with (d.+1).
-reflexivity.
-rewrite subn1.
-simpl.
-lia.
-Qed. 
 
 (** From list to vectors, from fold to bigop *)
 
@@ -333,7 +317,7 @@ reflexivity.
 Qed.
 
 Lemma vec_to_list_corr : forall {d} (v : 'cV_d.+1) (i : 'I_d.+1), 
-             nth i (vec_to_list v) 0 = v i $0.
+             nth i (vec_to_list v) 0 = v i ord_max.
 Proof.
 intros d v i.
 rewrite map_seq_nth.
@@ -345,6 +329,8 @@ rewrite inord_val.
 reflexivity.
 apply/ltP.
 auto with arith.
+unfold ord0, ord_max.
+apply ord_inj; simpl; reflexivity.
 apply/ltP.
 auto with arith.
 Qed. 
@@ -368,7 +354,7 @@ Lemma vec_to_list_format : forall {d} (v : 'cV[R]_d.+1) (F : R -> Prop),
 Proof. 
 intros d v F Hv.
 unfold F_mat in Hv.
-assert (Hw : forall i, F (v i $0)).
+assert (Hw : forall i, F (v i ord_max)).
 intros i; apply Hv.
 unfold vec_to_list.
 apply Forall_forall.
@@ -376,20 +362,16 @@ intros x Hx.
 apply in_map_iff in Hx.
 destruct Hx as (s,(Hs1,Hs2)).
 rewrite <- Hs1.
+specialize (Hw (inord s)).
+replace ord_max with (@ord0 O) in Hw.
 apply Hw.
+apply ord_inj; simpl.
+reflexivity.
 Qed.  
 
 
 (** technical lemmas for matrices *)
 
-Lemma mat_apply_fun : forall {n m} (F : ordinal n -> ordinal m -> R) i j, 
-           (\matrix_(k,k') (F k k'))%R i j = F i j.
-Proof. 
-intros n m F i j.
-now rewrite !mxE.
-Qed.
-
- 
 Lemma mat_apply_add_distr : forall {n m} (A B : 'M[R]_(m,n)) i j, 
                         (A + B)%Ri i j = A i j + B i j.
 Proof. 

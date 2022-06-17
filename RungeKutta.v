@@ -62,7 +62,7 @@ Definition eq_math_Sc (meth1 meth2 : Sc) : Prop :=
 
 (** Stability property *)
 Definition stable (meth : Sc) : Prop := 
-               forall x, \| (W_Id meth x) \| <= \| x \|.
+               forall x, ||| (W_Id meth x) ||| <= ||| x |||.
 
 
 Definition meth_iter (meth : Sc) n (y0 : 'cV_d.+1) (W : R -> R)  
@@ -79,14 +79,14 @@ end.*)
 (** global roundoff error of the scheme after N iteration 
    == En *)
 Definition error_glob (meth : Sc) (n : nat) (y0 : 'cV_d.+1) (W : R -> R) 
-            := vec_norm (meth_iter meth n y0 W - 
-                         meth_iter meth n y0 (fun x => x)).
+            := ||| (meth_iter meth n y0 W - 
+                         meth_iter meth n y0 (fun x => x)) |||.
 
 (** local roundoff error of the scheme at iteration n 
    == epsilon n+1 *)
 Definition error_loc (meth : Sc) (n : nat) (y0 : 'cV_d.+1) (W : R -> R) 
-                    := vec_norm (meth W (meth_iter meth n y0 W) 
-                               - meth (fun x => x) (meth_iter meth n y0 W)).
+                    := ||| (meth W (meth_iter meth n y0 W) 
+                               - meth (fun x => x) (meth_iter meth n y0 W)) |||.
 
 Notation "S1 ≡ S2" := (eq_math_Sc S1 S2) (at level 35).
 
@@ -94,11 +94,12 @@ Notation "S1 ≡ S2" := (eq_math_Sc S1 S2) (at level 35).
 Definition is_RK_lin (meth : Sc) (Rmeth : 'M_d.+1) := 
       forall y, W_Id meth y = (Rmeth *m y)%R. 
 
+Notation "x ^ y" := (Rpow_def.pow x y).
 
 (** Simplification of exact n-th iteration *)
 Lemma is_RK_Rmeth meth Rm (is_RKm : is_RK_lin meth Rm) y0 : 
-   forall N, vec_norm (meth_iter meth N y0 (fun x : R => x)) 
-           <= matrix_norm Rm ^ N * vec_norm y0.
+   forall N, ||| (meth_iter meth N y0 (fun x : R => x)) |||
+           <= ||| Rm ||| ^ N * ||| y0 |||.
 Proof. 
 induction 0.
 + simpl. 
@@ -113,15 +114,13 @@ induction 0.
   simpl; unfold is_RK_lin in is_RKm.
   unfold W_Id in *.
   rewrite is_RKm.
-  apply Rle_trans with (matrix_norm Rm 
-      * vec_norm (meth_iter meth N y0 ssrfun.id)).
-  apply mx_vec_norm_submult.
+  apply Rle_trans with (||| Rm |||
+      * ||| (meth_iter meth N y0 ssrfun.id) |||).
+  apply norm_submult.
   rewrite Rmult_assoc.
   apply Rmult_le_compat_l.
   apply matrix_norm_pos.
   apply IHN.
 Qed.
-
-
 
 End Def_schemes.
