@@ -13,25 +13,16 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 COPYING file for more details.
 *)
 
-
-Require Import Rdefinitions Raxioms RIneq Rbasic_fun.
-Require Import Epsilon FunctionalExtensionality Lra.
+Require Import Reals Lra.
 From mathcomp 
-Require Import all_ssreflect fingroup ssrnum ssralg finalg matrix. 
+Require Import all_ssreflect ssralg zmodp matrix. 
 Require Import Rstruct Compl Norms FP_prel RungeKutta.
-From Flocq.Core 
-Require Import Core. 
-From Flocq.Prop 
-Require Import Mult_error Plus_error Relative.
+From Flocq.Core Require Import Core. 
 
 Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
-
-Local Open Scope R_scope.
 
 Section error_glob_loc_flt.
-  
+
 Notation "x ^ y" := (Rpow_def.pow x y).
 
 Variable beta : radix.
@@ -39,81 +30,42 @@ Variables emin prec : Z.
 
 Context { prec_pos : Prec_gt_0 prec }.
 Variable choice : Z -> bool. 
-(*
-Definition u := bpow beta (-prec).
-Definition eta := bpow beta (emin).
-*)
+
 Notation r_flt :=
          (round beta (FLT_exp emin prec) (Znearest choice)). 
 Notation format := (generic_format beta (FLT_exp emin prec)).
 Notation format_mat := (format_mat prec).
 Notation rnd_mat_flt := (fun x => rnd_mat x r_flt).
-Notation rnd_vec_matrix_product := (mulmx_rnd prec choice). 
-
 
 (** From local to global error *)
 
-Variables (d : nat) (C D : R) (Cpos : 0 < C) (Dpos : 0 < D)
-          (meth : Sc d) (y0 : 'cV[R]_d.+1) 
-          (Rmeth : 'M_d.+1) (is_RKm : is_RK_lin meth Rmeth).
+Variables (d : nat) (C D : R) (Cpos : 0 < C) (Dpos : 0 <= D)
+          (meth : Sc d) (y0 : 'cV[R]_d) 
+          (Rmeth : 'M_d) (is_RKm : is_RK_lin meth Rmeth).
 
 Notation eps0 := (||| (rnd_mat_flt y0 - y0) |||).
 
-
 Lemma error_loc_glob_aux (N : nat) (W : R -> R) :
-              error_glob meth (S N) y0 W
-           <= error_loc meth N y0 W + 
-             (||| Rmeth ||| * error_glob meth N y0 W).
+  error_glob meth (S N) y0 W
+  <= error_loc meth N y0 W +  (||| Rmeth ||| * error_glob meth N y0 W).
 Proof.
 unfold error_glob.
-replace (meth_iter meth (S N) y0 W - 
-         meth_iter meth (S N) y0 (fun x : R => x))%Ri with
-        ((meth_iter meth (S N) y0 W - 
-          (meth (fun x => x) (meth_iter meth N y0 W))) +
-         ((meth (fun x => x) (meth_iter meth N y0 W) -
-          meth_iter meth (S N) y0 (fun x : R => x))))%Ri. 
-apply Rle_trans with (||| (meth_iter meth (S N) y0 W -
-          meth (fun x : R => x) (meth_iter meth N y0 W)) ||| +
-             ||| (meth (fun x : R => x) (meth_iter meth N y0 W) -
-             meth_iter meth (S N) y0 (fun x : R => x))|||).
-apply matrix_norm_triang.
+replace
+  (meth_iter meth (S N) y0 W -  meth_iter meth (S N) y0 id)%Ri
+  with
+  ((meth_iter meth (S N) y0 W - (meth id (meth_iter meth N y0 W)))
+   + ((meth id (meth_iter meth N y0 W) - meth_iter meth (S N) y0 id)))%Ri.
+eapply Rle_trans.
+apply matrix_norm_triang. 
 apply Rplus_le_compat.
 apply Rle_refl.
-simpl; replace (matrix_norm
-     (meth (fun x : R => x) 
-          (meth_iter meth N y0 W) -
-     meth (fun x : R => x)
-          (meth_iter meth N y0 
-         (fun x : R => x)))) with 
-         (matrix_norm
-         (Rmeth *m (meth_iter meth N y0 W) -
-          Rmeth *m (meth_iter meth N y0 
-                                 (fun x : R => x)))).
-rewrite <- mulmxBr.
-apply norm_submult.
 simpl in *; unfold is_RK_lin, W_Id in *.
 repeat rewrite is_RKm.
-reflexivity.
-transitivity ((meth_iter meth N.+1 y0 W -
-         meth_iter meth N.+1 y0 ssrfun.id) +
-        (meth ssrfun.id (meth_iter meth N y0 W)
-        - meth ssrfun.id (meth_iter meth N y0 W)))%Ri.
-repeat rewrite GRing.addrA.
-rewrite GRing.addrC.
-rewrite <- GRing.addrA.
-rewrite (GRing.addrC (- meth ssrfun.id 
-             (meth_iter meth N y0 W))%Ri _).
-rewrite GRing.Theory.addrN.
-rewrite GRing.Theory.addr0.
-rewrite <- GRing.addrA.
-rewrite GRing.Theory.addrN.
-rewrite GRing.Theory.addr0.
-now rewrite GRing.addrC.
-transitivity ((meth_iter meth N.+1 y0 W - 
-     meth_iter meth N.+1 y0 ssrfun.id) + 0)%Ri.
-f_equal.
-now rewrite GRing.Theory.addrN.
-now rewrite GRing.Theory.addr0.
+eapply Rle_trans.
+2: apply norm_submult. 
+apply Req_le; now rewrite mulmxBr.
+apply/matrixP=> i j.
+rewrite !mxE; Rring_tac; lra.
 Qed.
 
 
@@ -128,18 +80,8 @@ Proof.
 intros K Hn.
 induction N.
 + unfold INR; ring_simplify.
-  unfold error_glob.
-  simpl.
-  unfold rnd_mat.
-  pose (J := ||| \matrix_(i, j) r_flt (y0 i j) - y0 |||).
-  fold J.
-  apply Rle_trans with J.
-  unfold J.
-  apply Req_le; f_equal.
-  f_equal.
-  apply/matrixP=> i j.
-  rewrite !mxE; reflexivity.
-  lra.
+  unfold error_glob; simpl.
+  apply Req_le; repeat f_equal; now apply/matrixP=> i j; rewrite !mxE.
 + assert (H : error_glob meth (S N) y0 r_flt <=
     (C + matrix_norm Rmeth)* error_glob meth N y0 r_flt
    + C*(matrix_norm Rmeth)^N * ||| y0 ||| + D).
@@ -211,10 +153,9 @@ induction N.
   apply Rplus_le_compat; try lra. 
   apply matrix_norm_pos.
   apply IHN.
-  apply Rle_trans with 
-    ((C + ||| Rmeth |||) * ((C + ||| Rmeth |||) ^ N * 
-    (||| rnd_mat y0 r_flt - y0 ||| + INR N * (C * ||| y0 ||| 
-                  / (C + ||| Rmeth |||))))
+  apply Rle_trans with
+    ((C + ||| Rmeth |||) * ((C + ||| Rmeth |||)^N *
+    (||| rnd_mat y0 r_flt - y0 ||| + INR N * (C * ||| y0 ||| / (C + ||| Rmeth |||))))
      + C*||| Rmeth |||^N * |||y0||| + ((C+||| Rmeth |||)*INR N*K^N*D+D)).
   apply Req_le; ring.
   apply Rplus_le_compat.
@@ -244,7 +185,7 @@ induction N.
   apply Rgt_not_eq. 
   apply Rlt_gt.
   apply Rlt_le_trans with C; try easy.
-  rewrite <- (Rplus_0_r C) at 1.
+  rewrite <- Rplus_0_r at 1. 
   apply Rplus_le_compat_l.
   apply matrix_norm_pos.
   rewrite Rfunctions.tech_pow_Rmult.
@@ -266,8 +207,10 @@ induction N.
   apply Rplus_le_compat; try lra.
   apply Rmult_le_compat; try lra.
   repeat apply Rmult_le_pos; try lra.
-  rewrite <- (Rplus_0_r 0).
-  apply Rplus_le_compat; try lra; try apply matrix_norm_pos.
+  apply Rle_trans with C; try lra.
+  rewrite <- Rplus_0_r at 1.
+  apply Rplus_le_compat_l.
+  apply matrix_norm_pos.
   apply pos_INR.
   apply Rfunctions.pow_le.
   apply Rle_trans with 1; try lra.
@@ -292,6 +235,7 @@ induction N.
   rewrite <- Rfunctions.tech_pow_Rmult.
   rewrite <- addn1. 
   rewrite plus_INR.
+  auto with real.
   rewrite Rmult_plus_distr_r.
   rewrite Rmult_plus_distr_r.
   apply Rplus_le_compat.

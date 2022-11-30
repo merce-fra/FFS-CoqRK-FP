@@ -3,7 +3,6 @@
 COQC=coqc
 
 SRC=	Rstruct.v 	\
-	Rstruct_Rpos_compl.v 	\
 	Compl.v         \
 	Norms.v	\
 	FP_prel.v \

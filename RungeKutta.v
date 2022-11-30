@@ -12,30 +12,20 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 COPYING file for more details.
 *)
+Require Import Reals.
 
-
-Require Import Rdefinitions Raxioms RIneq Rbasic_fun Epsilon FunctionalExtensionality Lra.
 From mathcomp
-Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
+  Require Import all_ssreflect ssralg matrix.
+
 From Flocq.Core 
 Require Import Core. 
-From Flocq.Prop 
-Require Import Mult_error Plus_error Relative.
+
 Require Import Rstruct Compl Norms.
 
-
-
 Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
-
-Local Open Scope R_scope.
-
-
 
 Section Def_schemes. 
 
-(* FP variables *)
 
 Variables (beta : radix) 
           (emin prec : Z) 
@@ -47,13 +37,13 @@ Definition r_flt := (round beta
 Variable d : nat. 
 
 (** Type Sc of schemes : fun W => fun y(n) => y(n+1) *)
-Definition Sc : Type := (R -> R) -> 'cV[R]_d.+1 -> 'cV[R]_d.+1.
+Definition Sc : Type := (R -> R) -> 'cV[R]_d -> 'cV[R]_d.
 
 (* Roundings and schemes : 
    W_Id : exact R(h,l)
    W_FLT : FLT format on scheme R~(h~,l~,y~) *)
 
-Definition W_Id := (fun meth : Sc => meth (fun x => x)).
+Definition W_Id := (fun meth : Sc => meth ssrfun.id).
 Definition W_FLT := (fun meth : Sc => meth r_flt).
 
 (** Mathematical equivalence between schemes *)
@@ -65,33 +55,23 @@ Definition stable (meth : Sc) : Prop :=
                forall x, ||| (W_Id meth x) ||| <= ||| x |||.
 
 
-Definition meth_iter (meth : Sc) n (y0 : 'cV_d.+1) (W : R -> R)  
+Definition meth_iter (meth : Sc) n (y0 : 'cV_d) (W : R -> R)  
                      := Nat.iter n (meth W) (\matrix_(i,j) (W (y0 i j))).
-(*
-(* n-th iteration of the scheme *)
-Fixpoint meth_iter (meth : Sc) (n : nat) (y0 : 'cV_d) (W : R -> R) 
-                  := match n with 
-                        | O => (\matrix_(i, j) (W (y0 i j)))%R
-                        | S p => meth W (meth_iter meth p y0 W)
-end.*)
-
 
 (** global roundoff error of the scheme after N iteration 
    == En *)
-Definition error_glob (meth : Sc) (n : nat) (y0 : 'cV_d.+1) (W : R -> R) 
-            := ||| (meth_iter meth n y0 W - 
-                         meth_iter meth n y0 (fun x => x)) |||.
+Definition error_glob (meth : Sc) (n : nat) (y0 : 'cV_d) (W : R -> R) 
+  := ||| (meth_iter meth n y0 W - meth_iter meth n y0 id) |||.
 
 (** local roundoff error of the scheme at iteration n 
    == epsilon n+1 *)
-Definition error_loc (meth : Sc) (n : nat) (y0 : 'cV_d.+1) (W : R -> R) 
-                    := ||| (meth W (meth_iter meth n y0 W) 
-                               - meth (fun x => x) (meth_iter meth n y0 W)) |||.
+Definition error_loc (meth : Sc) (n : nat) (y0 : 'cV_d) (W : R -> R) 
+  := ||| (meth W (meth_iter meth n y0 W)  - meth id (meth_iter meth n y0 W)) |||.
 
 Notation "S1 ≡ S2" := (eq_math_Sc S1 S2) (at level 35).
 
 (** Characterization of RK + linear systems, i.e. R(h,A) *)
-Definition is_RK_lin (meth : Sc) (Rmeth : 'M_d.+1) := 
+Definition is_RK_lin (meth : Sc) (Rmeth : 'M_d) := 
       forall y, W_Id meth y = (Rmeth *m y)%R. 
 
 Notation "x ^ y" := (Rpow_def.pow x y).
@@ -114,8 +94,7 @@ induction 0.
   simpl; unfold is_RK_lin in is_RKm.
   unfold W_Id in *.
   rewrite is_RKm.
-  apply Rle_trans with (||| Rm |||
-      * ||| (meth_iter meth N y0 ssrfun.id) |||).
+  apply Rle_trans with (||| Rm |||*||| (meth_iter meth N y0 id) |||).
   apply norm_submult.
   rewrite Rmult_assoc.
   apply Rmult_le_compat_l.

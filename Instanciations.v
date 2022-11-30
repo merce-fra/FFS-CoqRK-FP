@@ -14,23 +14,17 @@ COPYING file for more details.
 *)
 
 
-Require Import Reals List FunctionalExtensionality Lra Lia.
+Require Import Reals Lra Lia.
 
 From Flocq.Core 
 Require Import Core. 
-From Flocq.Prop 
-Require Import Mult_error Plus_error Relative.
+
 From mathcomp
-Require Import all_ssreflect finalg ssrnum ssralg finalg matrix.
+Require Import all_ssreflect ssralg matrix.
 
 Require Import Rstruct RungeKutta FP_prel Error_loc_to_glob Compl Norms. 
 
 Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
-
-Local Open Scope R_scope.
-
 
 
 Variable d : nat. 
@@ -46,13 +40,9 @@ Notation r_flt := (r_flt beta emin prec).
 Notation format := (generic_format beta (FLT_exp prec emin)).
 
 Notation format_mat := (format_mat beta emin prec).
-Hypothesis Hdu : INR d.+1 * u < 1/100.
+Hypothesis Hdu : INR d * u < 1/100.
 Hypothesis Hemin : (emin <= 0)%Z.
-
-Notation "a *_sm A" := (map_mx (fun x => (a*x)) A) (at level 40).
-Notation "a (x)_s[ W ] A" := (map_mx (fun x => W (a*x)) A) (at level 40).
-Notation "A (+)_[ W ]  B" := (rnd_mat (A + B) W) (at level 40).
-Notation "A (x)_[ W ] B" := (mulmx_rnd A B W) (at level 45).
+Hypothesis d_NZ : (1 <= d)%coq_nat.
 
 Lemma u_lt_cent : u < 1 / 100.
 Proof.
@@ -61,11 +51,9 @@ Proof.
   apply Rmult_le_compat_r.
   apply Rmult_le_pos; try lra. 
   apply bpow_ge_0.
-  clear. 
-  induction d.
-  apply Rle_refl.
-  apply Rle_trans with (1 := IHn).
-  apply le_INR; lia.
+  clear.
+  apply (le_INR 1).
+  apply d_NZ.
 Qed.
 
 Lemma u_le_cent : u <= 1 / 100.
@@ -95,13 +83,13 @@ Proof.
   apply Hemin.
   auto with real.
 Qed. 
-
+(*
 Lemma Rabs_R0_ext :
   forall n f (i j : 'I_n), f i j = 0 -> Rabs (f i j) = 0.
 Proof.
   intros n f i j Hx; rewrite Hx; now rewrite Rabs_R0.
 Qed.
-
+*)
 Lemma meth_iter_format : forall n (M : Sc d) y0,
     (forall x, format_mat x -> format_mat (M r_flt x)) ->
     format_mat (meth_iter M n y0 r_flt).
@@ -182,15 +170,15 @@ Ltac format_meth M n y0 Hff:=
     apply generic_format_round; auto with typeclass_instances | ].
 
 Ltac preproc_meth M h A n y0 H ThRK :=
-  unfold error_loc;
+  unfold error_loc, W_plus, W_mult;
   generalize (ThRK _ h A);
   intros Hc; 
   format_meth (M _ h A) n y0 H; revert H;
   generalize (meth_iter (M _ h A) n y0 r_flt);
   intros y Hyf; eapply Rle_trans; unfold M;
   specialize (Hc y);
-  unfold W_Id, M in Hc; 
-  try rewrite Hc;
+  unfold W_Id, M in Hc;
+  try rewrite Hc; 
   try apply build_vec_mult_error_wk.
 
 Ltac pattern_error_bound :=
@@ -202,14 +190,18 @@ Ltac pattern_error_bound :=
 
 Section RK_def.
 
-  Variable d : nat.
+Variable d : nat.
+
+Notation "a *_sm A" := (map_mx (fun x => (a*x)) A) (at level 40).
+Notation "a (x)_s[ W ] A" := (map_mx (fun x => W (a*x)) A) (at level 40).
 
 (** À la Horner implementations of Euler and RK2 *)
+  
+Definition Euler (h : R) (A : 'M_d) : Sc d := fun (W : R -> R) =>
+    let A_2 := h (x)_s[ W ] (rnd_mat A W) in
+    (fun y => (y (+)_[ W ] (A_2 (x)_[ W ] y))).
 
-Definition Euler (h : R) (A : 'M_d.+1) : Sc d := fun (W : R -> R) => 
-    (fun y => (y (+)_[ W ] ((h (x)_s[ W ] (rnd_mat A W)) (x)_[ W ] y))).  
-
-Lemma Euler_RK_lin (h : R) (A : 'M_d.+1) :
+Lemma Euler_RK_lin (h : R) (A : 'M_d) :
   is_RK_lin (Euler h A) (1%:M + ((h *_sm A) *m 1%:M)).
 Proof.
   intros y.
@@ -218,29 +210,24 @@ Proof.
   rewrite mulmxDl.
   rewrite mul1mx.
   apply/matrixP => i j.
-  rewrite !mxE.
-  f_equal.
-  f_equal; apply functional_extensionality.
-  unfold rnd_mat; simpl.
-  intros x; f_equal.
-  rewrite !mxE.
-  reflexivity.
+  rewrite !mxE; unfold dot_product.
+  f_equal; apply eq_bigr; intros; rewrite !mxE; auto with real.
 Qed.
 
 
-Definition RK2 (h : R) (A : 'M_d.+1) : Sc d := fun (W : R -> R) => 
-    (fun y => (y (+)_[ W ] ((h (x)_s[ W ] (rnd_mat A W)) (x)_[ W ]
-                (y (+)_[ W ] (((W (h/2)) (x)_s[ W ] (rnd_mat A W)) (x)_[ W ] y))))). 
+Definition RK2 (h : R) (A : 'M_d) : Sc d := fun (W : R -> R) =>
+    let A_21 := h (x)_s[ W ] (rnd_mat A W) in
+    let A_22 := (W (h/2)) (x)_s[ W ] (rnd_mat A W) in
+    (fun y => (y (+)_[ W ] (A_21 (x)_[ W ] (y (+)_[ W ] (A_22 (x)_[ W ] y))))).
 
-
-Lemma RK2_RK_lin (h : R) (A : 'M_d.+1) :
+Lemma RK2_RK_lin (h : R) (A : 'M_d) :
   is_RK_lin (RK2 h A) ((1%:M + (((h *_sm A)) *m (1%:M + ((h/2) *_sm A) *m 1%:M)))).
 Proof.
   intros y.
   unfold W_Id; unfold RK2.
   rewrite mulmx1 mulmxDl mul1mx mulmxDr mulmx1.
   replace (rnd_mat A id) with A.
-  assert (Hp : forall x y : 'cV_d.+1, x (+)_[id] y = (x + y)%R).
+  assert (Hp : forall x y : 'cV_d, x (+)_[id] y = (x + y)%R).
   intros.
   apply/matrixP=> i j.
   now rewrite !mxE.
@@ -249,8 +236,11 @@ Proof.
              x (x)_[id] y = (x *m y)%R).
   intros. 
   apply/matrixP=> i j.
-  now rewrite !mxE.
+  rewrite !mxE.
+  unfold dot_product.
+  apply eq_bigr; intros k _; now rewrite !mxE.
   now rewrite 2!Hm mulmxDr mulmxDl mulmxA.
+  simpl. 
   apply/matrixP => i j.
   now rewrite !mxE.
 Qed. 
@@ -259,12 +249,12 @@ End RK_def.
 
 Section Error_loc. 
 
-Lemma euler_loc : forall n y0 h (A : 'M_d.+1), 0 < h ->
+Lemma euler_loc : forall n y0 h (A : 'M_d), 0 < h ->
   error_loc (Euler h A) n y0 r_flt
-  <= (u + (INR d.+1 + (3 + 1/10))*u*h*||| A ||| 
-     + ((508 / 100) * (1 + h) * INR d.+1)*eta)
+  <= (u + (INR d + (3 + 1/10))*u*h*||| A ||| 
+     + ((508 / 100) * (1 + h) * INR d)*eta)
         *||| meth_iter (Euler h A) n y0 r_flt |||
-     + ((6/10)* INR d.+1 * eta).
+     + ((6/10)* INR d * eta).
 Proof with auto with typeclass_instances.
   intros n y0 h A Hh.
   preproc_meth Euler h A n y0 Hff Euler_RK_lin...
@@ -278,8 +268,8 @@ Proof with auto with typeclass_instances.
   apply Rle_refl.
   (* D1 = 0 *)
   apply Rle_refl.
-  (* D2 = (6/10)*(1 + h)* INR d.+1 *)
-  instantiate (1 := (6/10)* (1+h)*INR d.+1).
+  (* D2 = (6/10)*(1 + h)* INR d *)
+  instantiate (1 := (6/10)* (1+h)*INR d).
   repeat apply Rmult_le_pos; autosolve.
   (* D3 = 0 *)
   apply Rle_refl.
@@ -287,7 +277,7 @@ Proof with auto with typeclass_instances.
   apply Req_le.
   ring_simplify.
   etransitivity.
-  2: apply (@matrix_norm_def d.+1 1).
+  2: apply (@matrix_norm_def d 1).
   rewrite mul1mx.
   f_equal; apply/matrixP => i j.
   rewrite !mxE.
@@ -300,7 +290,7 @@ Proof with auto with typeclass_instances.
   rewrite <- Rabs_R0.
   f_equal; ring.
   instantiate (2 := 1).
-  instantiate (1 := INR d.+1 * (/2)).
+  instantiate (1 := INR d * (/2)).
   ring_simplify.
   apply rnd_matrix_error...
   pattern_error_bound.
@@ -314,7 +304,7 @@ Proof with auto with typeclass_instances.
   simpl_arith.
   eapply Rle_trans.
   set (x := u);
-    subst_le (fun x => (1+x)*h * (INR d.+1*/2) + INR d.+1 */2)
+    subst_le (fun x => (1+x)*h * (INR d*/2) + INR d */2)
            (Rlt_le u (1/100) u_lt_cent) x.
   apply Rmult_le_pos; autosolve.
   unfold f.
@@ -328,13 +318,16 @@ Proof with auto with typeclass_instances.
   apply Req_le.
   repeat simpl_arith.
   etransitivity.
-  2: apply (@matrix_norm_def d.+1 1).
+  2: apply (@matrix_norm_def d 1).
   rewrite mul1mx.
   f_equal; apply/matrixP => i j.
   rewrite !mxE; autosolve.
   apply Rlt_le; apply Hdu.
   
   (* Bound simplification *)
+  destruct d.
+    rewrite /matrix_norm !big_ord0.
+    repeat simpl_arith.
   rewrite matrix_norm_id matrix_norm_scal_l.
   repeat simpl_arith.
   pattern_error_bound; autosolve.
@@ -360,14 +353,14 @@ Proof with auto with typeclass_instances.
   repeat apply Rmult_le_compat_r; autosolve.
 Qed. 
 
-Lemma rk2_loc : forall n y0 h (A : 'M_d.+1), 0 < h <= 1 ->
+Lemma rk2_loc : forall n y0 h (A : 'M_d), 0 < h <= 1 ->
   error_loc (RK2 h A) n y0 r_flt
-  <= (u + ((INR d.+1 + 5)*u*h 
-           + (6*INR d.+1 + 12/100*INR d.+1^2)*eta)*||| A ||| +
-          ((4 + 1.5*INR d.+1)*u*h + eta)*||| A |||^2 +
-          (24/10*INR d.+1^2 + 202/100*INR d.+1)*eta)
+  <= (u + ((INR d + 5)*u*h 
+           + (6*INR d + 12/100*INR d^2)*eta)*||| A ||| +
+          ((4 + 1.5*INR d)*u*h + eta)*||| A |||^2 +
+          (24/10*INR d^2 + 202/100*INR d)*eta)
         *||| meth_iter (RK2 h A) n y0 r_flt |||
-     + (6/10*INR d.+1 + 7/10*INR d.+1^2 + INR d.+1*h*|||A|||)* eta.
+     + (6/10*INR d + 7/10*INR d^2 + INR d*h*|||A|||)* eta.
 Proof with auto with typeclass_instances.
   intros n y0 h A Hh.
   preproc_meth RK2 h A n y0 Hff RK2_RK_lin...
@@ -379,8 +372,8 @@ Proof with auto with typeclass_instances.
   repeat apply Rmult_le_pos; autosolve.
   (* C3 = u + (((1.7 + 0.6*(d + 1)*h)*u) + 0.7*eta)*|||A||| + 2.2*d*eta*)
   instantiate (1 :=
-                 u + (((1.7 + 0.6*(INR d.+1 + 1)*h)*u)
-                  + 0.7*eta)*|||A||| + 2.2*INR d.+1*eta).
+                 u + (((1.7 + 0.6*(INR d + 1)*h)*u)
+                  + 0.7*eta)*|||A||| + 2.2*INR d*eta).
   rewrite <- (Rplus_0_r 0).
   apply Rplus_le_compat; autosolve.
   repeat (rewrite <- (Rplus_0_r 0);
@@ -388,16 +381,16 @@ Proof with auto with typeclass_instances.
   (* D1 = 0 *)
   apply Rle_refl.
   (* D2 = 0.505*(1+h)*d *)
-  instantiate (1 := 0.505*(1+h)* INR d.+1). 
+  instantiate (1 := 0.505*(1+h)* INR d). 
   autosolve.
   (* D3 = 0.6*d *)
-  instantiate (1 := 0.6*INR d.+1).
+  instantiate (1 := 0.6*INR d).
   autosolve.
   (* ||| X1 - A1 y ||| *)
   apply Req_le.
   ring_simplify.
   etransitivity.
-  2: apply (@matrix_norm_def d.+1 1).
+  2: apply (@matrix_norm_def d 1).
   rewrite mul1mx.
   f_equal; apply/matrixP => i j.
   rewrite !mxE.
@@ -410,7 +403,7 @@ Proof with auto with typeclass_instances.
   rewrite <- Rabs_R0.
   f_equal; ring.
   instantiate (2 := 1).
-  instantiate (1 := INR d.+1 * (/2)).
+  instantiate (1 := INR d * (/2)).
   ring_simplify.
   apply rnd_matrix_error...
   pattern_error_bound.
@@ -424,7 +417,7 @@ Proof with auto with typeclass_instances.
   simpl_arith.
   eapply Rle_trans.
   set (x := u);
-    subst_le (fun x => (1+x)*h * (INR d.+1*/2) + INR d.+1 */2)
+    subst_le (fun x => (1+x)*h * (INR d*/2) + INR d */2)
            (Rlt_le u (1/100) u_lt_cent) x.
   apply Rmult_le_pos; autosolve.
   unfold f.
@@ -448,7 +441,7 @@ Proof with auto with typeclass_instances.
   (* D1 sub = 0 *)
   apply Rle_refl.
   (* D2 sub = 1.52*d *)
-  instantiate (1 := 1.52*INR d.+1).
+  instantiate (1 := 1.52*INR d).
   autosolve.
   (* D3 sub = 0 *)
   apply Rle_refl.
@@ -456,7 +449,7 @@ Proof with auto with typeclass_instances.
   apply Req_le.
   ring_simplify.
   etransitivity.
-  2: apply (@matrix_norm_def d.+1 1).
+  2: apply (@matrix_norm_def d 1).
   rewrite mul1mx.
   f_equal; apply/matrixP => i j.
   rewrite !mxE.
@@ -475,7 +468,7 @@ Proof with auto with typeclass_instances.
   pattern_error_bound; autosolve.
   simpl_arith.
   rewrite (Rplus_assoc _ (0.6*eta)).
-  replace (INR d.+1 */2) with (0.5*INR d.+1) by autosolve. 
+  replace (INR d */2) with (0.5*INR d) by autosolve. 
   pattern_error_bound; autosolve.
   apply Rle_trans with (1.1*h*u +0.6*eta+0.5*h*u); autosolve.
   apply Rplus_le_compat; autosolve.
@@ -513,15 +506,15 @@ Proof with auto with typeclass_instances.
   apply Rmult_le_compat; autosolve.
   rewrite <- Rmult_plus_distr_r.
   apply Rmult_le_compat_r; autosolve.
-  apply Rle_trans with (0.6+1.02*INR d.+1 + 0.5*INR d.+1); autosolve.
+  apply Rle_trans with (0.6+1.02*INR d + 0.5*INR d); autosolve.
   apply Rplus_le_compat_r.
-  apply Rle_trans with (1.01*(u*0.5* h + 0.5*eta + 0.5*h) * (0.5*INR d.+1)); autosolve.
+  apply Rle_trans with (1.01*(u*0.5* h + 0.5*eta + 0.5*h) * (0.5*INR d)); autosolve.
   apply Rmult_le_compat_r; autosolve.
   apply Rmult_le_compat; autosolve.
   repeat pos_auto.
   repeat pos_auto.
   apply one_plus_u_bnd.
-  apply Rle_trans with (1.01 * (0.01*0.5*1 + 0.5*1 + 0.5*1) * (0.5 * INR d.+1)); autosolve.
+  apply Rle_trans with (1.01 * (0.01*0.5*1 + 0.5*1 + 0.5*1) * (0.5 * INR d)); autosolve.
   apply Rmult_le_compat_r, Rmult_le_compat_l; autosolve.
   repeat apply Rplus_le_compat; autosolve.
   apply Rmult_le_compat; autosolve.
@@ -540,7 +533,7 @@ Proof with auto with typeclass_instances.
   apply Req_le.
   repeat simpl_arith.
   etransitivity.
-  2: apply (@matrix_norm_def d.+1 1).
+  2: apply (@matrix_norm_def d 1).
   rewrite mul1mx.
   f_equal; apply/matrixP => i j.
   rewrite !mxE; autosolve.
@@ -548,7 +541,12 @@ Proof with auto with typeclass_instances.
   apply Hemin. 
   (* Bound simplification sub *)
   repeat simpl_arith.
+    destruct d as [|d'].
+    rewrite /matrix_norm !big_ord0.
+    repeat simpl_arith.
   repeat rewrite matrix_norm_scal_l.
+  repeat rewrite matrix_norm_id.
+  repeat simpl_arith.
   repeat rewrite Rabs_right; autosolve.
   pattern_error_bound; autosolve.
   rewrite 2!Rplus_assoc.
@@ -562,7 +560,7 @@ Proof with auto with typeclass_instances.
   rewrite <- 2!Rmult_assoc.
   rewrite <- Rmult_plus_distr_r.
   apply Rmult_le_compat_r; autosolve.
-  apply Rle_trans with (((INR d.+1 + 1.01) *0.5 + 1.03*1.6)*h*u
+  apply Rle_trans with (((INR d'.+1 + 1.01) *0.5 + 1.03*1.6)*h*u
                         +1.03*0.6*eta); autosolve.
   apply Rplus_le_compat.
   2: apply Rmult_le_compat_r;autosolve.
@@ -575,13 +573,13 @@ Proof with auto with typeclass_instances.
   repeat rewrite Rmult_plus_distr_l.
   apply Rplus_le_compat; autosolve.
   apply Rmult_le_compat; autosolve.
-  cut (eta <= INR d.+1*eta).
+  cut (eta <= INR d'.+1*eta).
   intros Hde; eapply Rle_trans.
   set e := eta.
-  subst_le (fun x => (1 + 3 / 100) * (0.6 *x + 1.52 * (INR d.+1 * eta))) Hde e.
-  rewrite (Rmult_assoc _ (INR d.+1) e); unfold e; autosolve.
+  subst_le (fun x => (1 + 3 / 100) * (0.6 *x + 1.52 * (INR d'.+1 * eta))) Hde e.
+  rewrite (Rmult_assoc _ (INR d'.+1) e); unfold e; autosolve.
   rewrite Rmult_assoc.
-  set g := INR d.+1*eta.
+  set g := INR d'.+1*eta.
   repeat rewrite Rmult_plus_distr_l.
   rewrite <- !Rmult_assoc.
   rewrite <- Rmult_plus_distr_r.
@@ -593,6 +591,10 @@ Proof with auto with typeclass_instances.
   auto with arith.
   apply Rlt_le, Hdu.
   (* Bound simplification *)
+    destruct d as [|d'].
+    rewrite /matrix_norm !big_ord0.
+    rewrite pow_i; try lia.
+    repeat simpl_arith.
   simpl_arith.
   replace (1 + 3/100) with 1.03 by autosolve.
   replace (h/2) with (0.5*h) by autosolve. 
@@ -624,7 +626,7 @@ Proof with auto with typeclass_instances.
   apply matrix_norm_triang.
   apply Rmult_le_compat_l.
   autosolve.
-  apply Rle_trans with (INR d.+1); autosolve.
+  apply Rle_trans with (INR d'.+1); autosolve.
   apply matrix_norm_triang.
   repeat rewrite mulmx1.
   repeat rewrite matrix_norm_scal_l.
@@ -635,10 +637,10 @@ Proof with auto with typeclass_instances.
   rewrite Rplus_comm.
   rewrite Rplus_assoc.
   apply Rplus_le_compat_l.
-  set K1 := ((INR d.+1 + (1+1/100)) * u*h).
-  set K2 := ((INR d.+1 + (1+1/100)) * u*h*0.5*h).
+  set K1 := ((INR d'.+1 + (1+1/100)) * u*h).
+  set K2 := ((INR d'.+1 + (1+1/100)) * u*h*0.5*h).
   assert (Ht1:
-           (INR d.+1 + (1+1/100)) * u*(h*||| A |||)*(1+0.5*h*||| A |||)
+           (INR d'.+1 + (1+1/100)) * u*(h*||| A |||)*(1+0.5*h*||| A |||)
          = K1*||| A ||| + K2*||| A |||^2).
   unfold K1, K2; autosolve.
   rewrite Ht1.
@@ -660,13 +662,13 @@ Proof with auto with typeclass_instances.
   rewrite Hb1.
   rewrite 8!Rmult_plus_distr_l.
   simpl_arith.
-  set K5 := (1.03* (u*h + 2.2 * INR d.+1 * eta * h)).
-  set K6 := (1.03*((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u + 0.7 * eta)*h). 
+  set K5 := (1.03* (u*h + 2.2 * INR d'.+1 * eta * h)).
+  set K6 := (1.03*((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u + 0.7 * eta)*h). 
   assert (Ht3:
            1.03 *
              ((u +
-                 ((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u + 0.7 * eta) *
-                   ||| A ||| + 2.2 * INR d.+1 * eta) *  (h * ||| A |||)) =
+                 ((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u + 0.7 * eta) *
+                   ||| A ||| + 2.2 * INR d'.+1 * eta) *  (h * ||| A |||)) =
              K5*||| A ||| + K6*||| A ||| ^ 2).
   unfold K5,K6; autosolve.
   rewrite Ht3.
@@ -680,14 +682,14 @@ Proof with auto with typeclass_instances.
   replace ((K1 + 1.03 * K3 + K5) * ||| A ||| + (K2 + 1.03 * K4 + K6) * ||| A ||| ^ 2 +
        1.03 * (K3 * ||| A ||| * u) +
        1.03 * (K3 * ||| A ||| *
-         (((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u + 0.7 * eta) * ||| A |||)) +
-       1.03 * (K3 * ||| A ||| * (2.2 * INR d.+1 * eta))) with
-    ((K1+ 1.03*K3 + K5 + 1.03*K3*u + 1.03*K3*2.2*INR d.+1*eta)* ||| A |||
-     + (K2+1.03*K4+K6 + 1.03*K3*((1.7 + (0.6 * INR d.+1 + 0.6)*h)*u + 0.7*eta))*||| A |||^2)
+         (((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u + 0.7 * eta) * ||| A |||)) +
+       1.03 * (K3 * ||| A ||| * (2.2 * INR d'.+1 * eta))) with
+    ((K1+ 1.03*K3 + K5 + 1.03*K3*u + 1.03*K3*2.2*INR d'.+1*eta)* ||| A |||
+     + (K2+1.03*K4+K6 + 1.03*K3*((1.7 + (0.6 * INR d'.+1 + 0.6)*h)*u + 0.7*eta))*||| A |||^2)
     by autosolve.
-  set J1 := ((0.505 + 0.505 * h) * INR d.+1).
-  set J2 := (1.7 + (0.6 * INR d.+1 + 0.6) * h) * u + 0.7 * eta.
-  set Keta := 1.03*(u*J1 + (2.2*INR d.+1*eta + 1)*J1).
+  set J1 := ((0.505 + 0.505 * h) * INR d'.+1).
+  set J2 := (1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u + 0.7 * eta.
+  set Keta := 1.03*(u*J1 + (2.2*INR d'.+1*eta + 1)*J1).
   set KA := 1.03*(J2*J1*eta + 0.5*h*J1*eta).
   eapply Rle_trans.
   apply Rplus_le_compat_l.
@@ -699,7 +701,7 @@ Proof with auto with typeclass_instances.
   autosolve.
   autosolve.
   apply Rplus_le_compat_l.
-  apply Rle_trans with ((J2 + 0.5*h)*||| A ||| + 2.2 * INR d.+1 * eta + 1).
+  apply Rle_trans with ((J2 + 0.5*h)*||| A ||| + 2.2 * INR d'.+1 * eta + 1).
   rewrite Rmult_plus_distr_r.
   rewrite 2!Rplus_assoc.
   apply Rplus_le_compat_l.
@@ -711,19 +713,19 @@ Proof with auto with typeclass_instances.
   rewrite <- 2!Rplus_assoc.
   pattern_error_bound.
   apply Rle_trans with
-    ((K1+1.03*K3 + K5 + 1.03*K3*u + 1.03*K3*2.2 * INR d.+1*eta + KA)*|||A|||
+    ((K1+1.03*K3 + K5 + 1.03*K3*u + 1.03*K3*2.2 * INR d'.+1*eta + KA)*|||A|||
      + (K2 + 1.03 * K4 + K6 + 1.03 * K3 * J2) * ||| A ||| ^ 2).
   autosolve. 
   pattern_error_bound.
   unfold K1, K3, K5, KA, J1, J2.
   replace (1 + 1/100) with 1.01 by autosolve.
   replace (12/100) with 0.12 by autosolve.
-  set M1 := (INR d.+1 + 1.01) + 1.03 * (2.01) +1.03*(1+2.01*u).
-  set M2 := (1.03 * (2.01 * u * h) * 2.2 * INR d.+1
-             + 1.03 * (2.2 * INR d.+1 * h + 0.5 * h * ((0.505 + 0.505 * h) * INR d.+1))
+  set M1 := (INR d'.+1 + 1.01) + 1.03 * (2.01) +1.03*(1+2.01*u).
+  set M2 := (1.03 * (2.01 * u * h) * 2.2 * INR d'.+1
+             + 1.03 * (2.2 * INR d'.+1 * h + 0.5 * h * ((0.505 + 0.505 * h) * INR d'.+1))
              +1.03 *
-          (((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u + 0.7 * eta) *
-             ((0.505 + 0.505 * h) * INR d.+1))).
+          (((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u + 0.7 * eta) *
+             ((0.505 + 0.505 * h) * INR d'.+1))).
   apply Rle_trans with (M1*(u*h) + M2*eta).
   unfold M1, M2; autosolve.
   pattern_error_bound; autosolve.
@@ -734,10 +736,10 @@ Proof with auto with typeclass_instances.
   autosolve.
   unfold M2.
   apply Rle_trans with
-    (1.03 * (2.01 * 0.01 * 1) * 2.2 * INR d.+1 +
-        1.03 * (2.2 * INR d.+1 * 1 + 0.5 * 1 * ((0.505 + 0.505 * 1) * INR d.+1)) +
-        1.03 * (((1.7 + (0.6 * INR d.+1 + 0.6) * 1) * 0.01 + 0.7 * 1) *
-                  ((0.505 + 0.505 * 1) * INR d.+1))).
+    (1.03 * (2.01 * 0.01 * 1) * 2.2 * INR d'.+1 +
+        1.03 * (2.2 * INR d'.+1 * 1 + 0.5 * 1 * ((0.505 + 0.505 * 1) * INR d'.+1)) +
+        1.03 * (((1.7 + (0.6 * INR d'.+1 + 0.6) * 1) * 0.01 + 0.7 * 1) *
+                  ((0.505 + 0.505 * 1) * INR d'.+1))).
   generalize u_lt_cent; intros Hcu; apply Rlt_le in Hcu.
   cut (eta <= 1).
   intros Heta.
@@ -774,23 +776,23 @@ Proof with auto with typeclass_instances.
   pos_auto.
   apply eta_le_1.
   apply Rle_trans with
-    ((0.0455466 + 2.78615 + 1.03*1.01*0.723)* INR d.+1 +
-       1.03*1.01*0.006*INR d.+1 ^ 2); autosolve.
+    ((0.0455466 + 2.78615 + 1.03*1.01*0.723)* INR d'.+1 +
+       1.03*1.01*0.006*INR d'.+1 ^ 2); autosolve.
   pattern_error_bound; autosolve.
   autosolve.
   unfold K2, K4, K6, K3, J2.
   replace (1+1/100) with 1.01 by autosolve.
   replace (6+6/10) with 6.6 by autosolve.
   apply Rle_trans with
-    ((INR d.+1 + 1.01) * u * h * 0.5 * h + 1.03 * (2.01 * u * h * 0.5 * h) +
-       1.03 * ((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u) * h +
-       1.03 * (2.01 * u * h) * ((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u)
+    ((INR d'.+1 + 1.01) * u * h * 0.5 * h + 1.03 * (2.01 * u * h * 0.5 * h) +
+       1.03 * ((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u) * h +
+       1.03 * (2.01 * u * h) * ((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u)
      + (1.03 * (2.01 * u * h) * 0.7 + 0.7*1.03*h)*eta); autosolve.
   apply Rplus_le_compat.
   apply Rle_trans with (
-   (((INR d.+1 + 1.01) * 0.5 * h)  + (1.03 * (2.01 * 0.5 * h)) +
-  (1.03 * ((1.7 + (0.6 * INR d.+1 + 0.6) * h)))  +
-    (1.03 * 2.01 * ((1.7 + (0.6 * INR d.+1 + 0.6) * h) * u)))* (u*h)).
+   (((INR d'.+1 + 1.01) * 0.5 * h)  + (1.03 * (2.01 * 0.5 * h)) +
+  (1.03 * ((1.7 + (0.6 * INR d'.+1 + 0.6) * h)))  +
+    (1.03 * 2.01 * ((1.7 + (0.6 * INR d'.+1 + 0.6) * h) * u)))* (u*h)).
   autosolve.
   rewrite <- Rmult_assoc.
   apply Rmult_le_compat_r; autosolve.
@@ -798,7 +800,7 @@ Proof with auto with typeclass_instances.
   apply Rle_trans with (
       (1.01* 0.5 * h + 1.03 * 2.01 * 0.5 * h + 1.03*(1.7+0.6*h) + 1.03*2.01*(1.7*u + 0.6*h*u))
       +
-        ((0.5*h) + 1.03*0.6*h + 1.03*2.01*0.6*h*u)*INR d.+1); autosolve.
+        ((0.5*h) + 1.03*0.6*h + 1.03*2.01*0.6*h*u)*INR d'.+1); autosolve.
   apply Rplus_le_compat.
   apply Rle_trans with
     (1.01 * 0.5 * 1 + 1.03 * 2.01 * 0.5 * 1 + 1.03 * (1.7 + 0.6 * 1) +
@@ -837,8 +839,8 @@ Proof with auto with typeclass_instances.
   unfold Keta.
   unfold J1.
   apply Rle_trans with
-    ((1.03*0.505*(1+h)*(1+u))*(INR d.+1)
-     + (1.03*0.505*2.2*(1+h)*eta*(INR d.+1)^2)).
+    ((1.03*0.505*(1+h)*(1+u))*(INR d'.+1)
+     + (1.03*0.505*2.2*(1+h)*eta*(INR d'.+1)^2)).
   autosolve.
   rewrite Rplus_comm.
   pattern_error_bound; autosolve.
@@ -861,14 +863,14 @@ Proof with auto with typeclass_instances.
   apply Rplus_le_compat_l.
   rewrite 2!Rmult_plus_distr_l.
   apply Rle_trans with (
-      (1.03 * (2.01 * u * h  * (0.6 * INR d.+1) + h*(0.6 * INR d.+1)))*||| A ||| +
-        1.03 * ((0.505 * 1 + 0.505 * h) * INR d.+1 * (0.6 * INR d.+1))).
+      (1.03 * (2.01 * u * h  * (0.6 * INR d'.+1) + h*(0.6 * INR d'.+1)))*||| A ||| +
+        1.03 * ((0.505 * 1 + 0.505 * h) * INR d'.+1 * (0.6 * INR d'.+1))).
   autosolve.
   rewrite Rplus_comm.
   pattern_error_bound.
   simpl_arith.
   apply Rle_trans with
-    ((1.03 * ((0.505 + 0.505 * h) * 0.6) * (INR d.+1 ^2))).  
+    ((1.03 * ((0.505 + 0.505 * h) * 0.6) * (INR d'.+1 ^2))).  
   autosolve.
   apply Rmult_le_compat_r.
   autosolve.
@@ -891,12 +893,12 @@ Qed.
 End Error_loc. 
 
 Section Error_glob. 
-
+ 
 (** Global error bound for Euler *)
 
-Theorem euler_glob : forall N y0 h (A : 'M_d.+1),
-  let C := (u + (INR d.+1 + (3 + 1/10))*u*h*||| A ||| 
-     + ((508 / 100) * (1 + h) * INR d.+1)*eta) in 
+Theorem euler_glob : forall N y0 h (A : 'M_d), 
+  let C := (u + (INR d + (3 + 1/10))*u*h*||| A ||| 
+     + ((508 / 100) * (1 + h) * INR d)*eta) in 
   let K := Rmax (C + |||1%:M + h *_sm A *m 1%:M |||) 1 in
         0 < h -> 0 < ||| A ||| -> 
         error_glob (Euler h A) N y0 r_flt
@@ -904,9 +906,17 @@ Theorem euler_glob : forall N y0 h (A : 'M_d.+1),
                  (||| rnd_mat y0 (round beta (FLT_exp emin prec) ZnearestE) - y0 ||| +
                      INR N * C * ||| y0 ||| /
                   (C + ||| 1%:M + h *_sm A *m 1%:M |||)) +
-               INR N*K^N * 6 / 10 * INR d.+1 * eta.
+               INR N*K^N * 6 / 10 * INR d * eta.
 Proof with auto with typeclass_instances.
-intros N y0 h A C K Hh HA.
+  intros N y0 h A C K Hh HA.
+assert (d_NZ : (0 < d)%coq_nat).
+  destruct d; try lia.
+  rewrite /matrix_norm big_ord0 /GRing.zero /= in HA.
+  lra.
+assert (Hu : 0 < u) by 
+  (apply Rdiv_lt_0_compat; try apply bpow_gt_0; now auto with real).
+assert (Hrd : 0 <= INR d) by (apply: (le_INR 0); lia). 
+assert (Heta : 0 < eta) by apply: bpow_gt_0. 
 eapply Rle_trans.
 apply error_loc_to_glob...
 4 : {
@@ -914,31 +924,17 @@ apply error_loc_to_glob...
   now apply euler_loc.
 }
 rewrite <- (Rplus_0_r 0).
-apply Rplus_lt_compat; try lra.
+apply Rplus_lt_le_compat; try lra.
 rewrite <- (Rplus_0_r 0).
-apply Rplus_lt_compat; try lra.
-apply Rmult_lt_0_compat; try lra.
-apply bpow_gt_0.
+apply Rplus_lt_le_compat; try lra.
+repeat apply Rmult_le_pos; try lra.
+apply bpow_ge_0.
+repeat apply Rmult_le_pos; try lra.
+repeat apply Rmult_le_pos; try lra.
 repeat apply Rmult_lt_0_compat; try lra.
-rewrite <- (Rplus_0_r 0).
-apply Rplus_lt_compat; try lra.
-apply Rle_lt_trans with (INR 0). 
-apply Rle_refl. 
-apply lt_INR; lia.
-apply bpow_gt_0.
-repeat apply Rmult_lt_0_compat; try lra.
-apply Rle_lt_trans with (INR 0). 
-apply Rle_refl. 
-apply lt_INR; lia.
-apply bpow_gt_0.
-repeat apply Rmult_lt_0_compat; try lra.
-apply Rle_lt_trans with (INR 0). 
-apply Rle_refl.
-apply lt_INR; lia.
-apply bpow_gt_0. 
 intros y.
 unfold W_Id, Euler.
-Existential 2 := (1%:M + (h *_sm A) *m 1%:M)%R.
+instantiate (1 := (1%:M + (h *_sm A) *m 1%:M)%R). 
 rewrite mulmx1.
 rewrite mulmxDl.
 rewrite mul1mx.
@@ -946,8 +942,8 @@ apply/matrixP => i j.
 rewrite !mxE.
 f_equal.
 simpl.
-f_equal; apply functional_extensionality.
-unfold rnd_mat; simpl.
+unfold dot_product.
+apply eq_bigr.
 intros x; f_equal.
 rewrite !mxE.
 reflexivity.
@@ -957,11 +953,11 @@ Qed.
 
 (** Global error bound for Euler *)
 
-Theorem rk2_glob :  forall N y0 h (A : 'M_d.+1),
-        let C := (u + ((INR d.+1 + 5)*u*h 
-           + (6*INR d.+1 + 12/100*INR d.+1^2)*eta)*||| A ||| +
-          ((4 + 1.5*INR d.+1)*u*h + eta)*||| A |||^2 +
-          (24/10*INR d.+1^2 + 202/100*INR d.+1)*eta) in
+Theorem rk2_glob :  forall N y0 h (A : 'M_d),
+        let C := (u + ((INR d + 5)*u*h 
+           + (6*INR d + 12/100*INR d^2)*eta)*||| A ||| +
+          ((4 + 1.5*INR d)*u*h + eta)*||| A |||^2 +
+          (24/10*INR d^2 + 202/100*INR d)*eta) in
         let K := Rmax (C + ||| 1%:M + (h *_sm A) + (((h^2)/2) *_sm A *m A) |||) 1 in
         0 < h <= 1 -> 0 < ||| A ||| -> 
         error_glob (RK2 h A) N y0 r_flt
@@ -969,9 +965,13 @@ Theorem rk2_glob :  forall N y0 h (A : 'M_d.+1),
                  (||| rnd_mat y0 (round beta (FLT_exp emin prec) ZnearestE) - y0 ||| +
                      INR N * C * ||| y0 ||| /
                   (C + ||| 1%:M + (h *_sm A) + (((h^2)/2) *_sm A *m A) |||)) +
-                INR N*K^N * (6/10*INR d.+1 + 7/10*INR d.+1^2 + INR d.+1*h*|||A|||) * eta.
+                INR N*K^N * (6/10*INR d + 7/10*INR d^2 + INR d*h*|||A|||) * eta.
 Proof with auto with typeclass_instances.
 intros N y0 h A C K Hh HA.
+assert (d_NZ : (0 < d)%coq_nat).
+  destruct d; try lia.
+  rewrite /matrix_norm big_ord0 /GRing.zero /= in HA.
+  lra.
 eapply Rle_trans.
 apply error_loc_to_glob...
 4 : {
@@ -1024,12 +1024,12 @@ apply pos_INR.
 apply Rmult_le_pos; try lra. 
 apply pos_INR. 
 apply bpow_ge_0.
-apply Rmult_lt_0_compat; try lra.
-apply Rlt_le_trans with (6 / 10 * INR d.+1); try lra.
+apply Rlt_le. apply Rmult_lt_0_compat; try lra.
+apply Rlt_le_trans with (6 / 10 * INR d); try lra.
 apply Rmult_lt_0_compat; try lra.
 replace 0 with (INR 0) by reflexivity.
 apply lt_INR; lia.
-apply Rle_trans with (6 / 10 * INR d.+1 + 0 + 0).
+apply Rle_trans with (6 / 10 * INR d + 0 + 0).
 lra.
 repeat apply Rplus_le_compat; try lra;
 repeat apply Rmult_le_pos; try lra;
@@ -1037,15 +1037,15 @@ apply pos_INR.
 apply bpow_gt_0.
 intros y.
 unfold W_Id, RK2.
-Existential 2 := 
-  (1%:M + (h *_sm A) + (((h^2)/2) *_sm A *m A))%R.
+instantiate (1 := 
+  (1%:M + (h *_sm A) + (((h^2)/2) *_sm A *m A))%R).
 rewrite mulmxDl.
 replace (rnd_mat A id) with A.
 2 : {apply/matrixP => i j.
 rewrite !mxE.
 reflexivity. }
 assert (Hp : 
-  forall (x y : 'cV_d.+1), x (+)_[id] y = (x + y)%R).
+  forall (x y : 'cV_d), x (+)_[id] y = (x + y)%R).
 intros.
 apply/matrixP=> i j.
 rewrite !mxE.
@@ -1057,7 +1057,8 @@ assert (Hm :
 intros. 
 apply/matrixP=> i j.
 rewrite !mxE.
-reflexivity.
+unfold dot_product.
+apply eq_bigr; intros; now rewrite !mxE.
 rewrite 2!Hm.
 rewrite mulmxDr.
 rewrite mulmxDl.
@@ -1070,21 +1071,17 @@ rewrite mulmxA.
 f_equal.
 apply/matrixP=> i j.
 rewrite !mxE.
-f_equal; apply functional_extensionality.
-f_equal; intros t.
-f_equal.
-rewrite !mxE.
+apply eq_bigr; intros t _; rewrite !mxE.
+Rring_tac.
+replace (h ^ 2) with (h * h) by lra.
 rewrite <- Rmult_assoc.
-apply Rmult_eq_compat_r.
-field.
-apply/matrixP=> i j.
+f_equal; lra.
+Rring_tac.
+apply matrixP=> i j.
 rewrite !mxE.
 rewrite <- Rplus_assoc.
 reflexivity.
-unfold K, C; lra.
+unfold K, C; lra. 
 Qed.
 
 End Error_glob.
-
-
-
